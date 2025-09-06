@@ -38,3 +38,6 @@ Thumbs.db
 
 # Shadcn cache (si aparece)
 components.json.bak
+
+# Local env
+.env
