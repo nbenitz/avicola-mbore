@@ -13,6 +13,8 @@ import DetailsPanel from "@/features/layout/components/DetailsPanel";
 import ControlsBar from "@/features/layout/components/ControlsBar";
 import ServerListDialog from "@/features/layout/components/ServerListDialog";
 import type { BoardHandle } from "@/features/layout/components/board.types";
+import { usePlannerEventBridge } from "@/features/layout/hooks/usePlannerEventBridge";
+import type { PlannerExportKind, PlannerOpsParams, PlannerPresetId } from "@/features/layout/hooks/usePlannerEventBridge";
 
 
 const LS_KEY = "mbore_layout_v1";
@@ -238,6 +240,47 @@ export default function Planner() {
   // Export vía Board (imperative handle)
   const boardRef = useRef<BoardHandle>(null);
 
+  // === Bridge de eventos desde Sidebar ===
+  const handleApplyPreset = (presetId: PlannerPresetId) => {
+    // mapea directo a tu implementación actual:
+    if (presetId === "4x250" || presetId === "2x500" || presetId === "1x1000") {
+      setPendingPreset(presetId as any);
+      applyPresetBlocks(presetId as any);
+    } else {
+      console.warn("[Planner] preset desconocido:", presetId);
+    }
+  };
+
+  const handleExport = (kind: PlannerExportKind, includeBG: boolean) => {
+    if (kind === "png") {
+      boardRef.current?.exportPNG("plano", includeBG);
+    } else {
+      boardRef.current?.exportPDF("plano", includeBG);
+    }
+  };
+
+  const handleUpdateOps = (params: PlannerOpsParams) => {
+    // Por ahora, solo log; en próximos pasos lo agregamos a un store global para cálculos.
+    console.log("[Planner] updateOps:", params);
+  };
+
+  const handleCalcReport = () => {
+    // Aquí podrías invocar computeRoads/otros helpers + dialog de resultados
+    console.log("[Planner] calcReport (pendiente)");
+  };
+
+  const handleIotRefresh = () => console.log("[Planner] iotRefresh (pendiente)");
+  const handleIotConnect = () => console.log("[Planner] iotConnect (pendiente)");
+
+  usePlannerEventBridge({
+    onApplyPreset: handleApplyPreset,
+    onExport: handleExport,
+    onUpdateOps: handleUpdateOps,
+    onCalcReport: handleCalcReport,
+    onIotRefresh: handleIotRefresh,
+    onIotConnect: handleIotConnect,
+  });
+
   return (
     <div className="bg-white rounded-xl shadow p-4" style={{ userSelect: "none" }}>
       <ControlsBar
@@ -268,8 +311,8 @@ export default function Planner() {
         house500H={house500H}
         house1000W={house1000W}
         house1000H={house1000H}
-        onExportPNG={() => boardRef.current?.exportPNG("plano")}
-        onExportPDF={() => boardRef.current?.exportPDF("plano")}
+        onExportPNG={() => boardRef.current?.exportPNG("plano", true)}
+        onExportPDF={() => boardRef.current?.exportPDF("plano", true)}
         onSaveLocal={saveLayout}
         onLoadLocal={loadLayout}
         onExportJSON={exportJSON}

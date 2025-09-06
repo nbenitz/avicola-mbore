@@ -29,13 +29,14 @@ const Board = forwardRef<BoardHandle, Props>(function Board(props, ref) {
 
   // <- expone métodos al padre
   useImperativeHandle(ref, () => ({
-    exportPNG: (name = "plano") => {
+    exportPNG: (name = "plano", includeBG = true) => {
       if (!svgRef.current) return;
-      doExportPNG(svgRef.current, name, true);
+      // respetar includeBG (útil para evitar CORS si hay imagen externa)
+      doExportPNG(svgRef.current, name, includeBG);
     },
-    exportPDF: (name = "plano") => {
+    exportPDF: (name = "plano", includeBG = true) => {
       if (!svgRef.current) return;
-      doExportPDF(svgRef.current, name, true);
+      doExportPDF(svgRef.current, name, includeBG);
     },
   }), []);
 

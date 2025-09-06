@@ -1,5 +1,5 @@
 import React from "react";
-import Planner from "@/features/layout/Planner";
+import PlannerWithSidebar from "@/features/layout/pages/PlannerWithSidebar";
 import { PackageOpen, Save, Upload, Download } from "lucide-react";
 
 export default function App() {
@@ -13,7 +13,7 @@ export default function App() {
         </div>
       </header>
       <main className="max-w-7xl mx-auto p-4">
-        <Planner />
+        <PlannerWithSidebar />
       </main>
       <footer className="text-center text-xs text-slate-400 py-6">
         © {new Date().getFullYear()} Granja Mboré — módulo Planner (React + Vite)
