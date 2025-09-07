@@ -2,30 +2,42 @@ import React, { useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import BlockItem from "./BlockItem";
 import { Block, Road } from "../types";
 import { useDragBlocks } from "../hooks/useDragBlocks";
-import { exportPDF as doExportPDF, exportPNG as doExportPNG } from "@/lib/export";
-import type { BoardHandle } from "@/features/layout/components/board.types";
+import { exportPDF as doExportPDF, exportPNG as doExportPNG } from "../../../lib/export";
+import type { BoardHandle } from "./board.types";
 
 const scale = 20;
 const m2px = (v: number) => v * scale;
 
-type Props = {
+ type Props = {
   widthM: number; heightM: number;
   blocks: Block[]; setBlocks: React.Dispatch<React.SetStateAction<Block[]>>;
   roads: Road[];
   showGrid: boolean; gridStep: number;
   showLabels: boolean; showRulers: boolean; showBuffer: boolean; showRoads: boolean;
-};
+  snapToGrid: boolean; // ← nuevo
+  /** id seleccionado (opcional) */
+  selectedId?: string | null;
+  /** callback de selección (opcional) */
+  onSelect?: (id: string | null) => void;
+ };
 
-const Board = forwardRef<BoardHandle, Props>(function Board(props, ref) {
+ const Board = forwardRef<BoardHandle, Props>(function Board(props, ref) {
   const { widthM, heightM, blocks, setBlocks, roads,
-          showGrid, gridStep, showLabels, showRulers, showBuffer, showRoads } = props;
+          showGrid, gridStep, showLabels, showRulers, showBuffer, showRoads,
+          snapToGrid, selectedId, onSelect } = props; // ← destruc
 
   const W = m2px(widthM) + 40;
   const H = m2px(heightM) + 40;
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const { onBlockPointerDown, onSvgPointerMove, onSvgPointerUp } =
-    useDragBlocks(svgRef, blocks, setBlocks, true, gridStep, widthM, heightM);
+  const { onBlockPointerDown, onSvgPointerMove, onSvgPointerUp, onSvgPointerCancel } =
+    useDragBlocks(svgRef, blocks, setBlocks, snapToGrid, gridStep, widthM, heightM);
+
+  // cuando se hace pointerdown sobre un bloque, además de iniciar drag, disparamos selección
+  const handleBlockPointerDown = (e: React.PointerEvent, id: string) => {
+    onBlockPointerDown(e, id);
+    onSelect?.(id);
+  };
 
   // <- expone métodos al padre
   useImperativeHandle(ref, () => ({
@@ -78,6 +90,7 @@ const Board = forwardRef<BoardHandle, Props>(function Board(props, ref) {
       width={W} height={H}
       onPointerMove={onSvgPointerMove}
       onPointerUp={onSvgPointerUp}
+      onPointerCancel={onSvgPointerCancel}
       onPointerLeave={onSvgPointerUp}
     >
       <g transform="translate(20,20)">
@@ -89,7 +102,12 @@ const Board = forwardRef<BoardHandle, Props>(function Board(props, ref) {
           <rect key={r.id} x={m2px(r.x)} y={m2px(r.y)} width={m2px(r.w)} height={m2px(r.h)} fill="#f1f5f9" stroke="#94a3b8" pointerEvents="none" />
         ))}
         {blocks.map(b => (
-          <BlockItem key={b.id} b={b} showLabel={showLabels} onPointerDown={onBlockPointerDown} />
+          <BlockItem
+            key={b.id}
+            b={b}
+            showLabel={showLabels}
+            onPointerDown={handleBlockPointerDown}
+          />
         ))}
         {rulers}
       </g>

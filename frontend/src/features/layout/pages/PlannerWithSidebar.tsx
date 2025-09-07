@@ -1,7 +1,6 @@
-import { Sidebar } from "@/features/planner/components";
+import Sidebar from "@/features/layout/components/Sidebar";
 import { useUIStore } from "@/store/ui";
-// Ajusta esta ruta a tu Planner principal real:
-import Planner from "@/features/planner/Planner"; 
+import Planner from "@/features/layout/Planner";
 
 export default function PlannerWithSidebar() {
   const sidebarOpen = useUIStore((s) => s.sidebarOpen);
