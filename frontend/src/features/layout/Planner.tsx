@@ -9,14 +9,15 @@ import {
 } from "@/lib/api";
 import { computeRoads } from "@/features/layout/utils/roads";
 import Board from "@/features/layout/components/Board";
-import DetailsPanel from "@/features/layout/components/DetailsPanel";
-import ControlsBar from "@/features/layout/components/ControlsBar";
 import ServerListDialog from "@/features/layout/components/ServerListDialog";
 import type { BoardHandle } from "@/features/layout/components/board.types";
 import { usePlannerEventBridge } from "@/features/layout/hooks/usePlannerEventBridge";
 import type { PlannerExportKind, PlannerOpsParams, PlannerPresetId } from "@/features/layout/hooks/usePlannerEventBridge";
 import Toolbar from "./components/Toolbar";
 import Sidebar from "./components/Sidebar";
+import { BLOCK_INFO } from "@/features/layout/data/blockInfo";
+import DetailsPanelDark from "@/features/layout/components/DetailsPanelDark";
+
 
 
 const LS_KEY = "mbore_layout_v1";
@@ -58,7 +59,13 @@ export default function Planner() {
 
   // Selección
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = useMemo(() => blocks.find(b => b.id === selectedId) || null, [blocks, selectedId]);
+  const selected = blocks.find(b => b.id === selectedId) || null;
+  const fichaKey =
+    selected
+      ? (BLOCK_INFO[selected.id] ? selected.id :
+        BLOCK_INFO[selected.group] ? selected.group : "")
+      : "";
+  const ficha = fichaKey ? BLOCK_INFO[fichaKey] : undefined;
 
   // Fondo al exportar
   const [includeBgExport, setIncludeBgExport] = useState<boolean>(false);
@@ -84,6 +91,34 @@ export default function Planner() {
       })
     );
   }, [widthM, heightM]);
+
+
+  // Aplica rotación y/o resize manteniendo el bloque dentro del terreno.
+  // - Rotación: si cambia paridad (0/180 vs 90/270) hace swap w/h manteniendo centro.
+  const applyBlockAdjust = (id: string, ch: { w?: number; h?: number; r?: number }) => {
+    setBlocks(prev => prev.map(b => {
+      if (b.id !== id) return b;
+
+      let nx = b.x, ny = b.y, nw = ch.w ?? b.w, nh = ch.h ?? b.h, nr = ch.r ?? (b.r || 0);
+
+      // limitar tamaños y mantener dentro
+      nw = Math.max(0.5, Math.min(nw, widthM - b.x));
+      nh = Math.max(0.5, Math.min(nh, heightM - b.y));
+
+      const oldR = b.r || 0;
+      if (ch.r !== undefined && ((oldR % 180) !== (nr % 180))) {
+        // rotación cruza paridad -> swap w/h manteniendo centro
+        const cx = b.x + b.w/2, cy = b.y + b.h/2;
+        const sw = nh, sh = nw;
+        nx = cx - sw/2; ny = cy - sh/2;
+        nx = Math.max(0, Math.min(nx, widthM - sw));
+        ny = Math.max(0, Math.min(ny, heightM - sh));
+        return { ...b, x:nx, y:ny, w:sw, h:sh, r:nr };
+      }
+
+      return { ...b, w:nw, h:nh, r:nr };
+    }));
+  };
 
   // Rotar
   const rotateBlock = (id: string) => {
@@ -270,6 +305,7 @@ export default function Planner() {
     if (typeof p.showRulers === "boolean") setShowRulers(p.showRulers);
     if (typeof p.showBuffer === "boolean") setShowBuffer(p.showBuffer);
   };
+  
   const handleCalcReport = () => {
     // Aquí podrías invocar computeRoads/otros helpers + dialog de resultados
     console.log("[Planner] calcReport (pendiente)");
@@ -320,17 +356,6 @@ export default function Planner() {
           setShowRulers={setShowRulers}
           showBuffer={showBuffer}
           setShowBuffer={setShowBuffer}
-          pendingPreset={pendingPreset}
-          setPendingPreset={setPendingPreset as any}
-          applyPresetBlocks={applyPresetBlocks}
-          moduleW={moduleW}
-          setModuleW={setModuleW}
-          moduleH={moduleH}
-          setModuleH={setModuleH}
-          house500W={house500W}
-          house500H={house500H}
-          house1000W={house1000W}
-          house1000H={house1000H}
           includeBgExport={includeBgExport}
           setIncludeBgExport={setIncludeBgExport}
         />
@@ -364,23 +389,18 @@ export default function Planner() {
             </div>
           </div>
 
-          <div className="mt-4 rounded-lg border bg-white p-4">
-            <h3 className="font-semibold mb-2">Detalles</h3>
-            {selected ? (
-              <DetailsPanel
-                selected={selected}
-                onRotate={rotateBlock}
-                setNotes={(id, v) =>
-                  setBlocks((prev) =>
-                    prev.map((b) => (b.id === id ? { ...b, notes: v } : b))
-                  )
-                }
-              />
-            ) : (
-              <p className="text-sm text-slate-500">
-                Hacé clic en un bloque para ver detalles.
-              </p>
-            )}
+          <div className="mt-4">
+            <DetailsPanelDark
+              selected={selected}
+              areaM2={selected ? Math.round(selected.w * selected.h * 100) / 100 : 0}
+              meta={ficha}
+              onChangeNotes={(val) =>
+                selected && setBlocks(prev =>
+                  prev.map(b => b.id === selected.id ? { ...b, notes: val } : b)
+                )
+              }
+              onAdjust={(id, changes) => applyBlockAdjust(id, changes)}
+            />
           </div>
 
           <ServerListDialog
@@ -389,6 +409,7 @@ export default function Planner() {
             items={serverList}
             onLoad={loadFromServer}
           />
+          
         </main>
       </div>
     </div>
