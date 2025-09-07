@@ -1,58 +1,58 @@
+// src/features/layout/hooks/usePlannerEventBridge.ts
 import { useEffect } from "react";
 
-export type PlannerPresetId = "4x250" | "2x500" | "1x1000" | (string & {});
+export type PlannerPresetId = "4x250" | "2x500" | "1x1000";
 export type PlannerExportKind = "png" | "pdf";
-export type PlannerOpsParams = { density: number; waterPerBird: number; feedPerBird: number; };
+export type PlannerOpsParams = {
+  widthM?: number; heightM?: number; gridStep?: number;
+  showGrid?: boolean; showLabels?: boolean; showRulers?: boolean; showBuffer?: boolean;
+  snapToGrid?: boolean;
+};
 
-export type PlannerEventHandlers = {
-  onApplyPreset?: (presetId: PlannerPresetId) => void;
+const CHANNEL = "planner-bridge";
+const target: EventTarget = typeof window !== "undefined" ? window : ({} as any);
+
+type BridgeEvent =
+  | { type: "apply-preset"; preset: PlannerPresetId }
+  | { type: "export"; kind: PlannerExportKind; includeBG: boolean }
+  | { type: "update-ops"; params: PlannerOpsParams }
+  | { type: "calc-report" }
+  | { type: "iot-refresh" }
+  | { type: "iot-connect" };
+
+export function emitApplyPreset(preset: PlannerPresetId) {
+  target.dispatchEvent(new CustomEvent(CHANNEL, { detail: { type: "apply-preset", preset } as BridgeEvent }));
+}
+export function emitExport(kind: PlannerExportKind, includeBG: boolean) {
+  target.dispatchEvent(new CustomEvent(CHANNEL, { detail: { type: "export", kind, includeBG } as BridgeEvent }));
+}
+export function emitUpdateOps(params: PlannerOpsParams) {
+  target.dispatchEvent(new CustomEvent(CHANNEL, { detail: { type: "update-ops", params } as BridgeEvent }));
+}
+
+export function usePlannerEventBridge(handlers: {
+  onApplyPreset?: (preset: PlannerPresetId) => void;
   onExport?: (kind: PlannerExportKind, includeBG: boolean) => void;
   onUpdateOps?: (params: PlannerOpsParams) => void;
   onCalcReport?: () => void;
   onIotRefresh?: () => void;
   onIotConnect?: () => void;
-};
-
-type ApplyPresetEvent = CustomEvent<PlannerPresetId>;
-type ExportEvent = CustomEvent<{ kind: PlannerExportKind; includeBG?: boolean }>;
-type UpdateOpsEvent = CustomEvent<PlannerOpsParams>;
-
-export function usePlannerEventBridge(handlers: PlannerEventHandlers) {
+}) {
   useEffect(() => {
-    const onApplyPreset = (e: Event) => handlers.onApplyPreset?.((e as ApplyPresetEvent).detail);
-    const onExport = (e: Event) => {
-      const { kind, includeBG = true } = (e as ExportEvent).detail || { kind: "png", includeBG: true };
-      handlers.onExport?.(kind, includeBG);
+    const listener = (e: Event) => {
+      const ev = e as CustomEvent<BridgeEvent>;
+      const d = ev.detail;
+      if (!d) return;
+      switch (d.type) {
+        case "apply-preset": handlers.onApplyPreset?.(d.preset); break;
+        case "export": handlers.onExport?.(d.kind, d.includeBG); break;
+        case "update-ops": handlers.onUpdateOps?.(d.params); break;
+        case "calc-report": handlers.onCalcReport?.(); break;
+        case "iot-refresh": handlers.onIotRefresh?.(); break;
+        case "iot-connect": handlers.onIotConnect?.(); break;
+      }
     };
-    const onUpdateOps = (e: Event) => {
-      const d = (e as UpdateOpsEvent).detail;
-      if (d) handlers.onUpdateOps?.(d);
-    };
-    const onCalcReport = () => handlers.onCalcReport?.();
-    const onIotRefresh = () => handlers.onIotRefresh?.();
-    const onIotConnect = () => handlers.onIotConnect?.();
-
-    window.addEventListener("planner:applyPreset", onApplyPreset as EventListener);
-    window.addEventListener("planner:export", onExport as EventListener);
-    window.addEventListener("planner:updateOps", onUpdateOps as EventListener);
-    window.addEventListener("planner:calcReport", onCalcReport as EventListener);
-    window.addEventListener("planner:iot:refresh", onIotRefresh as EventListener);
-    window.addEventListener("planner:iot:connect", onIotConnect as EventListener);
-
-    return () => {
-      window.removeEventListener("planner:applyPreset", onApplyPreset as EventListener);
-      window.removeEventListener("planner:export", onExport as EventListener);
-      window.removeEventListener("planner:updateOps", onUpdateOps as EventListener);
-      window.removeEventListener("planner:calcReport", onCalcReport as EventListener);
-      window.removeEventListener("planner:iot:refresh", onIotRefresh as EventListener);
-      window.removeEventListener("planner:iot:connect", onIotConnect as EventListener);
-    };
-  }, [
-    handlers.onApplyPreset,
-    handlers.onExport,
-    handlers.onUpdateOps,
-    handlers.onCalcReport,
-    handlers.onIotRefresh,
-    handlers.onIotConnect,
-  ]);
+    target.addEventListener(CHANNEL, listener as EventListener);
+    return () => target.removeEventListener(CHANNEL, listener as EventListener);
+  }, [handlers]);
 }

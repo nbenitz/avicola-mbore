@@ -1,4 +1,3 @@
-import Sidebar from "@/features/layout/components/Sidebar";
 import { useUIStore } from "@/store/ui";
 import Planner from "@/features/layout/Planner";
 
@@ -8,7 +7,7 @@ export default function PlannerWithSidebar() {
   return (
     <div className="h-screen w-screen overflow-hidden bg-background text-foreground">
       <div className="flex h-full">
-        {sidebarOpen && <Sidebar />}
+        {sidebarOpen}
         <main className="flex-1 relative">
           {/* Aquí permanece intacto tu Planner existente */}
           <Planner />

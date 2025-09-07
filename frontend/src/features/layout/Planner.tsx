@@ -15,6 +15,8 @@ import ServerListDialog from "@/features/layout/components/ServerListDialog";
 import type { BoardHandle } from "@/features/layout/components/board.types";
 import { usePlannerEventBridge } from "@/features/layout/hooks/usePlannerEventBridge";
 import type { PlannerExportKind, PlannerOpsParams, PlannerPresetId } from "@/features/layout/hooks/usePlannerEventBridge";
+import Toolbar from "./components/Toolbar";
+import Sidebar from "./components/Sidebar";
 
 
 const LS_KEY = "mbore_layout_v1";
@@ -56,10 +58,10 @@ export default function Planner() {
 
   // Selección
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = useMemo(
-    () => blocks.find((b) => b.id === selectedId) || null,
-    [blocks, selectedId]
-  );
+  const selected = useMemo(() => blocks.find(b => b.id === selectedId) || null, [blocks, selectedId]);
+
+  // Fondo al exportar
+  const [includeBgExport, setIncludeBgExport] = useState<boolean>(false);
 
   // Mantener buffer y access pegados
   useEffect(() => {
@@ -259,11 +261,15 @@ export default function Planner() {
     }
   };
 
-  const handleUpdateOps = (params: PlannerOpsParams) => {
-    // Por ahora, solo log; en próximos pasos lo agregamos a un store global para cálculos.
-    console.log("[Planner] updateOps:", params);
+  const handleUpdateOps = (p: any) => {
+    if (typeof p.widthM === "number") setWidthM(Math.max(5, p.widthM));
+    if (typeof p.heightM === "number") setHeightM(Math.max(5, p.heightM));
+    if (typeof p.gridStep === "number") setGridStep(Math.max(0.1, p.gridStep));
+    if (typeof p.showGrid === "boolean") setShowGrid(p.showGrid);
+    if (typeof p.showLabels === "boolean") setShowLabels(p.showLabels);
+    if (typeof p.showRulers === "boolean") setShowRulers(p.showRulers);
+    if (typeof p.showBuffer === "boolean") setShowBuffer(p.showBuffer);
   };
-
   const handleCalcReport = () => {
     // Aquí podrías invocar computeRoads/otros helpers + dialog de resultados
     console.log("[Planner] calcReport (pendiente)");
@@ -279,40 +285,17 @@ export default function Planner() {
     onCalcReport: handleCalcReport,
     onIotRefresh: handleIotRefresh,
     onIotConnect: handleIotConnect,
-  });
+  })
 
   return (
-    <div className="bg-white rounded-xl shadow p-4" style={{ userSelect: "none" }}>
-      <ControlsBar
-        widthM={widthM}
-        heightM={heightM}
-        setWidthM={setWidthM}
-        setHeightM={setHeightM}
-        gridStep={gridStep}
-        setGridStep={setGridStep}
-        showGrid={showGrid}
-        setShowGrid={setShowGrid}
-        showLabels={showLabels}
-        setShowLabels={setShowLabels}
-        showRulers={showRulers}
-        setShowRulers={setShowRulers}
-        showBuffer={showBuffer}
-        setShowBuffer={setShowBuffer}
-        snapToGrid={snapToGrid}
-        setSnapToGrid={setSnapToGrid}
-        pendingPreset={pendingPreset}
-        setPendingPreset={setPendingPreset}
-        applyPresetBlocks={applyPresetBlocks}
-        moduleW={moduleW}
-        setModuleW={setModuleW}
-        moduleH={moduleH}
-        setModuleH={setModuleH}
-        house500W={house500W}
-        house500H={house500H}
-        house1000W={house1000W}
-        house1000H={house1000H}
-        onExportPNG={() => boardRef.current?.exportPNG("plano", true)}
-        onExportPDF={() => boardRef.current?.exportPDF("plano", true)}
+    <div className="min-h-screen bg-white">
+      <Toolbar
+        onExportPNG={() =>
+          boardRef.current?.exportPNG("plano", includeBgExport)
+        }
+        onExportPDF={() =>
+          boardRef.current?.exportPDF("plano", includeBgExport)
+        }
         onSaveLocal={saveLayout}
         onLoadLocal={loadLayout}
         onExportJSON={exportJSON}
@@ -321,53 +304,92 @@ export default function Planner() {
         onOpenServerList={openServerList}
       />
 
-      <input
-        ref={fileRef}
-        type="file"
-        accept="application/json,.json"
-        onChange={importJSONFromFile}
-        className="hidden"
-      />
+      <div className="mx-auto max-w-[1400px] grid lg:grid-cols-[280px_1fr] gap-0">
+        <Sidebar
+          widthM={widthM}
+          setWidthM={setWidthM}
+          heightM={heightM}
+          setHeightM={setHeightM}
+          gridStep={gridStep}
+          setGridStep={setGridStep}
+          showGrid={showGrid}
+          setShowGrid={setShowGrid}
+          showLabels={showLabels}
+          setShowLabels={setShowLabels}
+          showRulers={showRulers}
+          setShowRulers={setShowRulers}
+          showBuffer={showBuffer}
+          setShowBuffer={setShowBuffer}
+          pendingPreset={pendingPreset}
+          setPendingPreset={setPendingPreset as any}
+          applyPresetBlocks={applyPresetBlocks}
+          moduleW={moduleW}
+          setModuleW={setModuleW}
+          moduleH={moduleH}
+          setModuleH={setModuleH}
+          house500W={house500W}
+          house500H={house500H}
+          house1000W={house1000W}
+          house1000H={house1000H}
+          includeBgExport={includeBgExport}
+          setIncludeBgExport={setIncludeBgExport}
+        />
 
-      <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-9">
-          <Board
-            ref={boardRef}
-            widthM={widthM}
-            heightM={heightM}
-            blocks={blocks}
-            setBlocks={setBlocks}
-            roads={roads}
-            showGrid={showGrid}
-            gridStep={gridStep}
-            showLabels={showLabels}
-            showRulers={showRulers}
-            showBuffer={showBuffer}
-            showRoads={true}
-            snapToGrid={snapToGrid}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
+        <main className="p-4">
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={importJSONFromFile}
+            className="hidden"
           />
-        </div>
 
-        <div className="col-span-3">
-          <div className="sticky top-4 space-y-3">
-            <h3 className="font-semibold">Detalles</h3>
-            <DetailsPanel
-              selected={selected}
-              onRotate={rotateBlock}
-              setNotes={(id, v) =>
-                setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, notes: v } : b)))
-              }
-            />
-            <ServerListDialog
-              open={showServerList}
-              onOpenChange={setShowServerList}
-              items={serverList}
-              onLoad={loadFromServer}
-            />
+          <div className="rounded-lg border bg-white p-3 overflow-auto">
+            <div className="min-w-min">
+              <Board
+                ref={boardRef}
+                widthM={widthM}
+                heightM={heightM}
+                blocks={blocks}
+                setBlocks={setBlocks}
+                roads={roads}
+                showGrid={showGrid}
+                gridStep={gridStep}
+                showLabels={showLabels}
+                showRulers={showRulers}
+                showBuffer={showBuffer}
+                showRoads={true}
+                onSelect={setSelectedId}
+              />
+            </div>
           </div>
-        </div>
+
+          <div className="mt-4 rounded-lg border bg-white p-4">
+            <h3 className="font-semibold mb-2">Detalles</h3>
+            {selected ? (
+              <DetailsPanel
+                selected={selected}
+                onRotate={rotateBlock}
+                setNotes={(id, v) =>
+                  setBlocks((prev) =>
+                    prev.map((b) => (b.id === id ? { ...b, notes: v } : b))
+                  )
+                }
+              />
+            ) : (
+              <p className="text-sm text-slate-500">
+                Hacé clic en un bloque para ver detalles.
+              </p>
+            )}
+          </div>
+
+          <ServerListDialog
+            open={showServerList}
+            onOpenChange={setShowServerList}
+            items={serverList}
+            onLoad={loadFromServer}
+          />
+        </main>
       </div>
     </div>
   );

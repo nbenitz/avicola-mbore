@@ -2,53 +2,42 @@ import React, { useMemo, useRef, forwardRef, useImperativeHandle } from "react";
 import BlockItem from "./BlockItem";
 import { Block, Road } from "../types";
 import { useDragBlocks } from "../hooks/useDragBlocks";
-import { exportPDF as doExportPDF, exportPNG as doExportPNG } from "../../../lib/export";
+import { exportPDF as doExportPDF, exportPNG as doExportPNG } from "@/lib/export";
 import type { BoardHandle } from "./board.types";
 
 const scale = 20;
 const m2px = (v: number) => v * scale;
 
- type Props = {
+type Props = {
   widthM: number; heightM: number;
   blocks: Block[]; setBlocks: React.Dispatch<React.SetStateAction<Block[]>>;
   roads: Road[];
   showGrid: boolean; gridStep: number;
   showLabels: boolean; showRulers: boolean; showBuffer: boolean; showRoads: boolean;
-  snapToGrid: boolean; // ← nuevo
-  /** id seleccionado (opcional) */
-  selectedId?: string | null;
-  /** callback de selección (opcional) */
   onSelect?: (id: string | null) => void;
- };
+};
 
- const Board = forwardRef<BoardHandle, Props>(function Board(props, ref) {
-  const { widthM, heightM, blocks, setBlocks, roads,
-          showGrid, gridStep, showLabels, showRulers, showBuffer, showRoads,
-          snapToGrid, selectedId, onSelect } = props; // ← destruc
-
+const Board = forwardRef<BoardHandle, Props>(function Board(
+  { widthM, heightM, blocks, setBlocks, roads, showGrid, gridStep, showLabels, showRulers, showBuffer, showRoads, onSelect },
+  ref
+) {
   const W = m2px(widthM) + 40;
   const H = m2px(heightM) + 40;
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  const { onBlockPointerDown, onSvgPointerMove, onSvgPointerUp, onSvgPointerCancel } =
-    useDragBlocks(svgRef, blocks, setBlocks, snapToGrid, gridStep, widthM, heightM);
+  // drag & drop
+  const { onBlockPointerDown, onSvgPointerMove, onSvgPointerUp } =
+    useDragBlocks(svgRef, blocks, setBlocks, true, gridStep, widthM, heightM);
 
-  // cuando se hace pointerdown sobre un bloque, además de iniciar drag, disparamos selección
-  const handleBlockPointerDown = (e: React.PointerEvent, id: string) => {
-    onBlockPointerDown(e, id);
-    onSelect?.(id);
-  };
-
-  // <- expone métodos al padre
+  // expose exports
   useImperativeHandle(ref, () => ({
-    exportPNG: (name = "plano", includeBG = true) => {
+    exportPNG: (name = "plano", includeBg = true) => {
       if (!svgRef.current) return;
-      // respetar includeBG (útil para evitar CORS si hay imagen externa)
-      doExportPNG(svgRef.current, name, includeBG);
+      doExportPNG(svgRef.current, name, includeBg);
     },
-    exportPDF: (name = "plano", includeBG = true) => {
+    exportPDF: (name = "plano", includeBg = true) => {
       if (!svgRef.current) return;
-      doExportPDF(svgRef.current, name, includeBG);
+      doExportPDF(svgRef.current, name, includeBg);
     },
   }), []);
 
@@ -90,7 +79,6 @@ const m2px = (v: number) => v * scale;
       width={W} height={H}
       onPointerMove={onSvgPointerMove}
       onPointerUp={onSvgPointerUp}
-      onPointerCancel={onSvgPointerCancel}
       onPointerLeave={onSvgPointerUp}
     >
       <g transform="translate(20,20)">
@@ -106,7 +94,10 @@ const m2px = (v: number) => v * scale;
             key={b.id}
             b={b}
             showLabel={showLabels}
-            onPointerDown={handleBlockPointerDown}
+            onPointerDown={(e) => {
+              onBlockPointerDown(e, b.id);
+              onSelect?.(b.id);
+            }}
           />
         ))}
         {rulers}
@@ -116,4 +107,3 @@ const m2px = (v: number) => v * scale;
 });
 
 export default Board;
-export type { BoardHandle };
